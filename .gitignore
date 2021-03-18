@@ -131,3 +131,4 @@ dmypy.json
 # Project-specific files
 credentials.txt
 result.json
+run.sh
