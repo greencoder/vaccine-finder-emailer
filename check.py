@@ -10,6 +10,7 @@ import tabulate
 
 
 def fetch_vaccine_json():
+    """ Fetch the JSON API """
     url = 'https://www.vaccinespotter.org/api/v0/states/CO.json'
     response = requests.get(url, headers={'User-Agent': 'Mozilla 1.0'})
     assert response.ok, 'Could not fetch URL'
@@ -17,30 +18,32 @@ def fetch_vaccine_json():
 
 
 def load_zips_as_points(filepath):
-    zips = {}
-    data = json.loads(pathlib.Path(filepath).read_text())
+    """ Loads the zip codes file into a dictionary """
+    zip_codes_dict = {}
+    lines = pathlib.Path(filepath).read_text().strip().split('\n')[1:]
 
-    for result in data:
-        key = result.get('fields', {}).get('zip')
-        value = result.get('fields', {}).get('geopoint')
-        zips[key] = value
+    for line in lines:
+        zip_code, latitude, longitude = line.split(',')
+        zip_codes_dict[zip_code] = (float(latitude),float(longitude))
 
-    return zips
+    return zip_codes_dict
 
 
 def distance_from_zip_code(src_zip_code, dst_zip_code, zips):
+    """ Determines the distance (in miles) between two zip codes """
     dst_point = zips.get(dst_zip_code)
     src_point = zips.get(src_zip_code)
 
     if src_point and dst_point:
         distance = int(geopy.distance.great_circle(src_point, dst_point).mi)
     else:
-        distance = 99999 # Return a huge distance if not found
+        distance = None
 
     return distance
 
 
 def send_email(html, api_key):
+    """ Sends the email to the recipient via SendGrid """
     to_addr = 'snewman18@gmail.com'
     from_addr = 'scott@getnewman.com'
     subject = 'Vaccine Appointments Available'
@@ -51,6 +54,7 @@ def send_email(html, api_key):
 
 
 def parse_feature(location_dict, src_zip_code, zip_codes):
+    """ Parses the GeoJSON feature into a dictionary """
     props = location_dict.get('properties', {})
     lng, lat = location_dict.get('geometry', {}).get('coordinates')
     url = props.get('url')
@@ -87,24 +91,23 @@ if __name__ == '__main__':
     API_KEY = config['sendgrid']['API_KEY']
     assert API_KEY, 'Could not load Sendgrid API key'
 
-    # Load up the Colorado zip codes
-    points_by_zip = load_zips_as_points('colorado_zip_codes.json')
+    # Load up the zip codes into a dictionary keyed by the zip code with a value of lng,lat
+    points_by_zip = load_zips_as_points('zip_codes.txt')
 
-    # Fetch or load the web page
-    if not args.debug:
-        print('Fetching JSON')
-        data = fetch_vaccine_json()
-        pathlib.Path('result.json').write_text(json.dumps(data, indent=2))
-    else:
-        print('Loading JSON')
-        data = json.loads(pathlib.Path('result.json').read_text())
+    # Fetch the web API
+    print('Fetching JSON')
+    data = fetch_vaccine_json()
+    pathlib.Path('result.json').write_text(json.dumps(data, indent=2))
 
     # Parse the locations from the GeoJSON
     features = data.get('features', [])
     all_locations = [parse_feature(feat, args.src_zip_code, points_by_zip) for feat in features]
 
+    # Filter out any locations that don't have a distance (because the zip code was not found)
+    locations_with_distances = filter(lambda v: v.get('distance') is not None, all_locations)
+
     # Filter only locations that are within the desired distance
-    nearby_locations = list(filter(lambda v: v.get('distance') <= args.max_distance, all_locations))
+    nearby_locations = list(filter(lambda v: v.get('distance') <= args.max_distance, locations_with_distances))
 
     # Filter only nearby locations that have appointments
     locations = list(filter(lambda v: v.get('has_appts') == True, nearby_locations))
@@ -112,12 +115,13 @@ if __name__ == '__main__':
     if len(locations) == 0:
         sys.exit('No nearby locations with appointments found.')
 
-    # Print a table of the results
+    # Create a a table of the results
     headers = {'pharmacy': 'Pharmacy', 'address': 'Address', 'zip_code': 'Zip Code', 'distance': 'Distance'}
     table = tabulate.tabulate(locations, headers=headers)
-    html = f'<pre>{table}</pre>'
 
+    # Only send the email if we are not in debug mode
     if not args.debug:
+        html = f'<pre>{table}</pre>'
         result = send_email(html, API_KEY)
         print(table)
         print('Email sent:', result)
