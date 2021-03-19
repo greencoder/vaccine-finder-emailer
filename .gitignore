@@ -132,3 +132,4 @@ dmypy.json
 credentials.txt
 result.json
 run.sh
+log.txt

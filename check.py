@@ -1,5 +1,6 @@
 import argparse
 import configparser
+import ezlogs
 import geopy.distance
 import json
 import pathlib
@@ -101,11 +102,14 @@ if __name__ == '__main__':
     assert TO_ADDR, 'Could not load TO_ADDR email address. See README for details.'
     assert FROM_ADDR, 'Could not load FROM_ADDR email address. See README for details.'
 
+    # Set up logging
+    logger = ezlogs.Logger(file_name='log.txt', console_level='debug', file_level='info')
+
     # Load up the zip codes into a dictionary keyed by the zip code with a value of lng,lat
     points_by_zip = load_zips_as_points('zip_codes.txt')
 
     # Fetch the web API
-    print('Fetching JSON')
+    logger.info('Fetching JSON API')
     data = fetch_vaccine_json()
     pathlib.Path('result.json').write_text(json.dumps(data, indent=2))
 
@@ -123,7 +127,10 @@ if __name__ == '__main__':
     locations = list(filter(lambda v: v.get('has_appts') == True, nearby_locations))
 
     if len(locations) == 0:
-        sys.exit('No nearby locations with appointments found.')
+        logger.info('No nearby locations with appointments found.')
+        sys.exit()
+    else:
+        logger.info('Appointments found!')
 
     # Create a a table of the results
     headers = {'pharmacy': 'Pharmacy', 'address': 'Address', 'zip_code': 'Zip Code', 'distance': 'Distance'}
