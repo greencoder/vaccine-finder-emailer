@@ -42,10 +42,8 @@ def distance_from_zip_code(src_zip_code, dst_zip_code, zips):
     return distance
 
 
-def send_email(html, api_key):
+def send_email(html, api_key, to_addr, from_addr):
     """ Sends the email to the recipient via SendGrid """
-    to_addr = 'snewman18@gmail.com'
-    from_addr = 'scott@getnewman.com'
     subject = 'Vaccine Appointments Available'
     message = sendgrid.helpers.mail.Mail(from_email=from_addr, to_emails=to_addr, subject=subject, html_content=html)
     sg = sendgrid.SendGridAPIClient(api_key)
@@ -85,11 +83,23 @@ if __name__ == '__main__':
     args = argparser.parse_args()
 
     # Load the credentials
-    config = configparser.ConfigParser()
-    config.read('credentials.txt')
+    if not pathlib.Path('credentials.txt').exists():
+        sys.exit('Error! credentials.txt not found. See README for details.')
+    else:
+        config = configparser.ConfigParser()
+        config.read('credentials.txt')
 
-    API_KEY = config['sendgrid']['API_KEY']
-    assert API_KEY, 'Could not load Sendgrid API key'
+    try:
+        API_KEY = config['sendgrid']['API_KEY']
+        TO_ADDR = config['sendgrid']['TO_ADDR']
+        FROM_ADDR = config['sendgrid']['FROM_ADDR']
+    except KeyError:
+        sys.exit('Error reading credetntials.txt. See README for details.')
+
+    # Make sure we got the values needed from the credentials file
+    assert API_KEY, 'Could not load SendGrid API_KEY. See README for details.'
+    assert TO_ADDR, 'Could not load TO_ADDR email address. See README for details.'
+    assert FROM_ADDR, 'Could not load FROM_ADDR email address. See README for details.'
 
     # Load up the zip codes into a dictionary keyed by the zip code with a value of lng,lat
     points_by_zip = load_zips_as_points('zip_codes.txt')
@@ -122,7 +132,7 @@ if __name__ == '__main__':
     # Only send the email if we are not in debug mode
     if not args.debug:
         html = f'<pre>{table}</pre>'
-        result = send_email(html, API_KEY)
+        result = send_email(html, API_KEY, TO_ADDR, FROM_ADDR)
         print(table)
         print('Email sent:', result)
     else:
