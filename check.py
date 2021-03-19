@@ -94,7 +94,7 @@ if __name__ == '__main__':
         TO_ADDR = config['sendgrid']['TO_ADDR']
         FROM_ADDR = config['sendgrid']['FROM_ADDR']
     except KeyError:
-        sys.exit('Error reading credetntials.txt. See README for details.')
+        sys.exit('Error reading credentials.txt. See README for details.')
 
     # Make sure we got the values needed from the credentials file
     assert API_KEY, 'Could not load SendGrid API_KEY. See README for details.'
