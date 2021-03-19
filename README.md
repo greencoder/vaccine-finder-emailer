@@ -2,6 +2,8 @@
 
 This uses the API at vaccinespotter.org to find appointments available near your zip code. Please be kind to their API and run this at a reasonable interval.
 
+The distance that gets calculated between zip codes is "as the crow flies" and is probably different from driving distance, so consider that when you decide on your distance argument.
+
 ## Usage:
 ```
 $ python check.py <your zip code> <max distance in miles> [--debug]
