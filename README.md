@@ -1,5 +1,7 @@
 # Vaccine Finder Emailer
 
+This uses the API at vaccinespotter.org to find appointments available near your zip code. Please be kind to their API and run this at a reasonable interval.
+
 ## Usage:
 ```
 $ python check.py <your zip code> <max distance in miles> [--debug]
